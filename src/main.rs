@@ -39,9 +39,12 @@ async fn main() -> Result<()> {
 
     loop {
         let msg = Msg::Ping { from: cfg.node_id };
-        Network::new(cfg.node_id, cfg.listen_addr.clone())
+      if let Err(e) = Network::new(cfg.node_id, cfg.listen_addr.clone())
         .send(&cfg.peer, msg)
-        .await?;
+        .await
+        {
+            info!("Could not reach peer {}: {:?}", cfg.peer, e);
+        }
 
          tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     }
