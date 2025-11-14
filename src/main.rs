@@ -1,7 +1,7 @@
 mod network;
 
 use anyhow::Result;
-use tracing::info;
+use tracing::{info,error};
 use tracing_subscriber::{fmt,EnvFilter};
 use network::{Network, Msg};
 
@@ -34,19 +34,30 @@ async fn main() -> Result<()> {
       let net = Network::new(cfg.node_id, cfg.listen_addr.clone());
 
     tokio::spawn(async move {
-        net.run().await.unwrap();
+       if let Err(e) =  net.run().await {
+        error!("network listener failed: {:?}", e);
+       }
     });
 
-    loop {
-        let msg = Msg::Ping { from: cfg.node_id };
-      if let Err(e) = Network::new(cfg.node_id, cfg.listen_addr.clone())
-        .send(&cfg.peer, msg)
-        .await
-        {
-            info!("Could not reach peer {}: {:?}", cfg.peer, e);
-        }
+    let mut round: u64 = 1;
 
-         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    loop {
+       let payload_str = format!(
+        "block proposal from node {} at around {}",
+        cfg.node_id, round
+       );
+
+       let payload = payload_str.into_bytes();
+
+       let msg = Msg::RbcSend {round, payload};
+
+       if let Err(e)  =Network::send(cfg.node_id, &cfg.peer, msg).await {
+        info!("Could not reach peer {}: {:?}", cfg.peer, e);
+       }
+
+       round +=1;
+
+       tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     }
 
    
